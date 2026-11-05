@@ -423,7 +423,7 @@ load_config() {
   HOOK=
   PREFERRED_CHAIN=
   HOOK_CHAIN="no"
-  RENEW_DAYS="32"
+  RENEW_DAYS="30%"
   KEYSIZE="4096"
   WELLKNOWN=
   PRIVATE_KEY_RENEW="yes"
@@ -2063,7 +2063,28 @@ command_sign_domains() {
       valid="$("${OPENSSL}" x509 -enddate -noout -in "${cert}" | cut -d= -f2- )"
 
       printf " + Valid till %s " "${valid}"
-      if ("${OPENSSL}" x509 -checkend $((RENEW_DAYS * 86400)) -in "${cert}" 2>&1 | grep -q "will not expire"); then
+      if [[ "${RENEW_DAYS}" =~ ^([1-9][0-9]?)[%]$ ]] ; then
+        percentage="${BASH_REMATCH[1]}"
+        validitystart="$("${OPENSSL}" x509 -startdate -dateopt iso_8601 -noout -in "${cert}" | sed -nr "s/^notBefore=//p" | date -f - +%s )"
+        validityend="$("${OPENSSL}" x509 -enddate -dateopt iso_8601 -noout -in "${cert}" | sed -nr "s/^notAfter=//p" | date -f - +%s )"
+        timestampnow="$( date +%s )"
+        if [[ "${force_renew}" = "yes" ]]; then
+          echo "Ignoring because renew was forced!"
+        elif [[ ! "${validitystart}:${validityend}" =~ ^[1-9][0-9]{9}:[1-9][0-9]{9}$ ]] ; then
+          echo " Lifetime percentage cannot be calculated, renew!"
+        elif [[ "${validitystart}" -gt "${validityend}" ]] ; then
+          echo " Lifetime not plausible, renew!"
+        else
+          remainpercentage="$(( (100*(${validityend}-${timestampnow})) / (${validityend}-${validitystart}) ))"
+          if [[ "${remainpercentage}" -lt "${percentage}" ]] ; then
+             echo " Remaining ${remainpercentage}% lifetime, renew!"
+          else
+            echo " Remaining ${remainpercentage}% lifetime, skipping renew!"
+            [[ -n "${HOOK}" ]] && ("${HOOK}" "unchanged_cert" "${domain}" "${certdir}/privkey.pem" "${certdir}/cert.pem" "${certdir}/fullchain.pem" "${certdir}/chain.pem" || _exiterr 'unchanged_cert hook returned with non-zero exit code')
+            skip=yes
+          fi
+        fi
+      elif ("${OPENSSL}" x509 -checkend $((RENEW_DAYS * 86400)) -in "${cert}" 2>&1 | grep -q "will not expire"); then
         printf "(Longer than %d days). " "${RENEW_DAYS}"
         if [[ "${force_renew}" = "yes" ]]; then
           echo "Ignoring because renew was forced!"
