@@ -1361,7 +1361,7 @@ sign_csr() {
       sleep 1
       waited=$((waited+1))
       if [[ "${API}" -eq 2 ]]; then
-        result="$(signed_request "${challenge_uris[${idx}]}" "" | jsonsh)"
+        result="$(signed_request "$(echo "${authorizations[${idx}]}" | _sed -e 's/\"(.*)".*/\1/')" "" | jsonsh)"
       else
         result="$(http_request get "${challenge_uris[${idx}]}" | jsonsh)"
       fi
