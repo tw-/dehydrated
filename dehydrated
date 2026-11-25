@@ -2065,8 +2065,8 @@ command_sign_domains() {
       printf " + Valid till %s " "${valid}"
       if [[ "${RENEW_DAYS}" =~ ^([1-9][0-9]?)[%]$ ]] ; then
         percentage="${BASH_REMATCH[1]}"
-        validitystart="$("${OPENSSL}" x509 -startdate -dateopt iso_8601 -noout -in "${cert}" | sed -nr "s/^notBefore=//p" | date -f - +%s )"
-        validityend="$("${OPENSSL}" x509 -enddate -dateopt iso_8601 -noout -in "${cert}" | sed -nr "s/^notAfter=//p" | date -f - +%s )"
+        validitystart="$("${OPENSSL}" x509 -startdate -noout -in "${cert}" | sed -nr "s/^notBefore=//p" | date -f - +%s )"
+        validityend="$("${OPENSSL}" x509 -enddate -noout -in "${cert}" | sed -nr "s/^notAfter=//p" | date -f - +%s )"
         timestampnow="$( date +%s )"
         if [[ "${force_renew}" = "yes" ]]; then
           echo "Ignoring because renew was forced!"
